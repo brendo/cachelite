@@ -2,7 +2,7 @@
 	
 	Class extension_cachelite extends Extension
 	{
-		protected $_frontend;
+
 		protected $_cacheLite = null;
 		protected $_lifetime = null;
 		protected $_url = null;
@@ -11,11 +11,8 @@
 		
 		function __construct($args) {
 			require_once('lib/class.cachelite.php');
-			require_once(CORE . '/class.frontend.php');
-		
+    
 			$this->_Parent =& $args['parent'];
-			$this->_frontend = Frontend::instance();
-			
 			$this->_lifetime = $this->_get_lifetime();
 			
 			$this->_cacheLite = new Cache_Lite(array(
@@ -45,13 +42,13 @@
 		{
 			# Remove preferences
 			Symphony::Configuration()->remove('cachelite');
-			$this->_Parent->saveConfig();
+			Administration::instance()->saveConfig();
 			
 			# Remove file
 			if(file_exists(MANIFEST . '/cachelite-excluded-pages')) unlink(MANIFEST . '/cachelite-excluded-pages');
 			
 			# Remove extension table
-			Administration::instance()->Database->query("DROP TABLE `tbl_cachelite_references`");
+			Symphony::Database()->query("DROP TABLE `tbl_cachelite_references`");
 		}
 		
 		public function install() {
@@ -268,10 +265,8 @@
 		-------------------------------------------------------------------------*/
 		
 		public function intercept_page($context) {
-			require_once(CORE . '/class.frontend.php');
-		
 			if($this->_in_excluded_pages()) return;
-			$logged_in = $this->_frontend->isLoggedIn();
+			$logged_in = $context['parent']->isLoggedIn();
 			
 			if ($logged_in && array_key_exists('flush', $_GET) && $_GET['flush'] == 'site')
 			{
@@ -336,14 +331,14 @@
 			}
 		}
 		
-		public function write_page_cache(&$output) {
+		public function write_page_cache(&$context) {
 			if($this->_in_excluded_pages()) return;
-			$logged_in = $this->_frontend->isLoggedIn();
+			$logged_in = $context['parent']->isLoggedIn();
 			
 			if ( ! $logged_in)
 			//if (!isset($_GET['debug']) && !isset($_GET['profile']))
 			{
-				$render = $output['output'];
+				$render = $context['output'];
 				
 				// rebuild entry/section reference list for this page
 				$this->_delete_page_references($this->_url);
@@ -474,7 +469,7 @@
 		-------------------------------------------------------------------------*/
 		
 		private function _get_pages_by_content($id, $type) {
-			return $this->_frontend->Database->fetch(
+			return Symphony::Database()->fetch(
 				sprintf(
 					"SELECT page FROM tbl_cachelite_references WHERE %s LIKE '%%|%s|%%'",
 					(($type=='entry') ? 'entries' : 'sections'),
@@ -484,7 +479,7 @@
 		}
 		
 		private function _delete_page_references($url) {
-			$this->_frontend->Database->query(
+			Symphony::Database()->query(
 				sprintf(
 					"DELETE FROM tbl_cachelite_references WHERE page='%s'",
 					$url
@@ -493,7 +488,7 @@
 		}
 		
 		protected function _save_page_references($url, $sections, $entries) {
-			$this->_frontend->Database->query(
+			Symphony::Database()->query(
 				sprintf(
 					"INSERT INTO tbl_cachelite_references (page, sections, entries) VALUES ('%s','%s','%s')",
 					$url,
